@@ -249,6 +249,7 @@ public class SSHLauncherTest {
     @Issue("JENKINS-44830")
     @Test
     public void upgrade() throws Exception {
+        int retry = 10;
         JavaContainer c = javaContainer.get();
         DumbSlave slave = new DumbSlave("slave" + j.jenkins.getNodes().size(),
                 "dummy", "/home/test/slave", "1", Node.Mode.NORMAL, "remote",
@@ -256,11 +257,18 @@ public class SSHLauncherTest {
                 new SSHLauncher(c.ipBound(22), c.port(22), "test", "test", "", ""),
                 RetentionStrategy.INSTANCE, Collections.<NodeProperty<?>>emptyList());
         j.jenkins.addNode(slave);
-        Computer computer = slave.toComputer();
-        try {
-            computer.connect(false).get();
-        } catch (ExecutionException x) {
-            throw new AssertionError("failed to connect: " + computer.getLog(), x);
+        while (retry > 0) {
+            retry--;
+            Computer computer = slave.toComputer();
+            try {
+                computer.connect(false).get();
+            } catch (ExecutionException x) {
+                if (retry == 0) {
+                    throw new AssertionError("failed to connect: " + computer.getLog(), x);
+                } else {
+                    Thread.sleep(2000);
+                }
+            }
         }
         FreeStyleProject p = j.createFreeStyleProject();
         p.setAssignedNode(slave);
